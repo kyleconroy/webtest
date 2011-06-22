@@ -69,6 +69,28 @@ class CaptureStdout(object):
     def getvalue(self):
         return self.captured.getvalue()
 
+
+class BetterResponse(object):
+
+    def __init__(self, resp):
+        # Default values for the time being
+        self.cached = False
+        self.error = None
+        self.history = []
+
+        self.content = resp.body
+        self.status_code = int(resp.status[:3])
+        self.headers = resp.headers
+        self.ok = self.status_code < 400
+        self.url = resp.location
+
+    def raise_for_status():
+        pass
+
+    def read(*args):
+        pass
+
+
 class TestResponse(Response):
 
     """

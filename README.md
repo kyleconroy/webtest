@@ -12,5 +12,5 @@ New API (borrowed from [Requests](http://docs.python-requests.org/en/latest/inde
                     data={"path": "/blahblah"})
     assert resp.status_code == 400
 
-Doesn't look like much, but I find it much easier to use
+Doesn't look like much, but I find it much easier to use.
 
