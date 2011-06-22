@@ -660,6 +660,106 @@ class TestApp(object):
         self.use_unicode = use_unicode
         self.reset()
 
+    def request(self, method, url, params=None, data=None, headers=None,
+                cookies=None, files=None, auth=None, timeout=None,
+                allow_redirects=False):
+        """Constructs and sends a :class:`Request <models.Request>`. Returns
+        :class:`Response <models.Response>` object.
+
+        :param method: method for the new :class:`Request` object.
+
+        :param url: URL for the new :class:`Request` object.
+
+        :param params: (optional) Dictionary of GET/HEAD/DELETE
+        Parameters to send with the :class:`Request`.
+
+        :param data: (optional) Bytes/Dictionary of PUT/POST Data
+        to send with the :class:`Request`.
+
+        :param headers: (optional) Dictionary of HTTP Headers
+        to send with the :class:`Request`.
+
+        :param cookies: (optional) CookieJar object to
+        send with the :class:`Request`.
+
+        :param files: (optional) Dictionary of 'filename':
+        file-like-objects for multipart encoding upload.
+
+        :param auth: (optional) AuthObject to enable Basic HTTP Auth.
+
+        :param timeout: (optional) Float describing the timeout of the request.
+
+        :param allow_redirects: (optional) Boolean. Set to
+        True if POST/PUT/DELETE redirect following is allowed.
+        """
+        if params and data:
+            raise AppError('You may provide either params or '
+                           'data to a request, but not both.')
+
+        r = self.create_request(
+            method = method,
+            url = url,
+            data = params or data,
+            headers = headers,
+            cookiejar = cookies,
+            files = files,
+            auth = auth, # or auth_manager.get_auth(url),
+            timeout = timeout, #or config.settings.timeout,
+            allow_redirects = allow_redirects
+            )
+
+        return BetterResponse(r)
+
+    def create_request(self, url=None, headers=None, files=None, method=None,
+                       data=None, auth=None, cookiejar=None, timeout=None,
+                       redirect=True, allow_redirects=False):
+        headers = headers or {}
+        data = data or {}
+        self.cookies = cookiejar
+
+        resp = self._gen_request(method, url, headers=headers,
+                                 upload_files=files, expect_errors=True)
+        return resp
+
+    def get(self, url, params=None, headers=None, cookies=None,
+            auth=None, timeout=None):
+        """Sends a GET request. Returns :class:`BetterResponse` object.
+        """
+        return self.request('GET', url, params=params, headers=headers,
+                            cookies=cookies, auth=auth, timeout=timeout)
+
+    def head(self, url, params=None, headers=None, cookies=None,
+             auth=None, timeout=None):
+        """Sends a HEAD request. Returns :class:`BetterResponse` object.
+        """
+        return self.request('HEAD', url, params=params, headers=headers,
+                       cookies=cookies, auth=auth, timeout=timeout)
+
+    def post(self, url, data='', headers=None, files=None, cookies=None,
+             auth=None, timeout=None, allow_redirects=False):
+        """Sends a POST request. Returns :class:`BetterResponse` object.
+        """
+
+        return self.request('POST', url, data=data, headers=headers,
+                            files=files, cookies=cookies, auth=auth,
+                            timeout=timeout, allow_redirects=allow_redirects)
+
+    def put(self, url, data='', headers=None, files=None, cookies=None, auth=None,
+            timeout=None, allow_redirects=False):
+        """Sends a PUT request. Returns :class:`BetterResponse` object.
+        """
+        return self.request('PUT', url, data=data, headers=headers,
+                            files=files, cookies=cookies, auth=auth,
+                            timeout=timeout, allow_redirects=allow_redirects)
+
+    def delete(self, url, params=None, headers=None, cookies=None, auth=None,
+               timeout=None, allow_redirects=False):
+        """Sends a DELETE request. Returns :class:`BetterResponse` object.
+        """
+        return self.request('DELETE', url, params=params, headers=headers,
+                            cookies=cookies, auth=auth,
+                            timeout=timeout, allow_redirects=allow_redirects)
+
     def reset(self):
         """
         Resets the state of the application; currently just clears
@@ -677,60 +777,6 @@ class TestApp(object):
     def _remove_fragment(self, url):
         scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
         return urlparse.urlunsplit((scheme, netloc, path, query, ""))
-
-    def get(self, url, params=None, headers=None, extra_environ=None,
-            status=None, expect_errors=False):
-        """
-        Get the given url (well, actually a path like
-        ``'/page.html'``).
-
-        ``params``:
-            A query string, or a dictionary that will be encoded
-            into a query string.  You may also include a query
-            string on the ``url``.
-
-        ``headers``:
-            A dictionary of extra headers to send.
-
-        ``extra_environ``:
-            A dictionary of environmental variables that should
-            be added to the request.
-
-        ``status``:
-            The integer status code you expect (if not 200 or 3xx).
-            If you expect a 404 response, for instance, you must give
-            ``status=404`` or it will be an error.  You can also give
-            a wildcard, like ``'3*'`` or ``'*'``.
-
-        ``expect_errors``:
-            If this is not true, then if anything is written to
-            ``wsgi.errors`` it will be an error.  If it is true, then
-            non-200/3xx responses are also okay.
-
-        Returns a ``webob.Response`` object.
-        """
-        environ = self._make_environ(extra_environ)
-        # Hide from py.test:
-        __tracebackhide__ = True
-        if params:
-            if not isinstance(params, (str, unicode)):
-                params = urllib.urlencode(params, doseq=True)
-            if '?' in url:
-                url += '&'
-            else:
-                url += '?'
-            url += params
-        url = str(url)
-        if '?' in url:
-            url, environ['QUERY_STRING'] = url.split('?', 1)
-        else:
-            environ['QUERY_STRING'] = ''
-        url = self._remove_fragment(url)
-        req = self.RequestClass.blank(url, environ)
-        if headers:
-            req.headers.update(headers)
-        return self.do_request(req, status=status,
-                               expect_errors=expect_errors)
 
     def _gen_request(self, method, url, params='', headers=None, extra_environ=None,
                      status=None, upload_files=None, expect_errors=False,
@@ -766,66 +812,6 @@ class TestApp(object):
             req.headers.update(headers)
         return self.do_request(req, status=status,
                                expect_errors=expect_errors)
-
-    def post(self, url, params='', headers=None, extra_environ=None,
-             status=None, upload_files=None, expect_errors=False,
-             content_type=None):
-        """
-        Do a POST request.  Very like the ``.get()`` method.
-        ``params`` are put in the body of the request.
-
-        ``upload_files`` is for file uploads.  It should be a list of
-        ``[(fieldname, filename, file_content)]``.  You can also use
-        just ``[(fieldname, filename)]`` and the file content will be
-        read from disk.
-
-        Returns a ``webob.Response`` object.
-        """
-        return self._gen_request('POST', url, params=params, headers=headers,
-                                 extra_environ=extra_environ,status=status,
-                                 upload_files=upload_files,
-                                 expect_errors=expect_errors,
-                                 content_type=content_type)
-
-    def put(self, url, params='', headers=None, extra_environ=None,
-            status=None, upload_files=None, expect_errors=False,
-            content_type=None):
-        """
-        Do a PUT request.  Very like the ``.put()`` method.
-        ``params`` are put in the body of the request, if params is a
-        tuple, dictionary, list, or iterator it will be urlencoded and
-        placed in the body as with a POST, if it is string it will not
-        be encoded, but placed in the body directly.
-
-        Returns a ``webob.Response`` object.
-        """
-        return self._gen_request('PUT', url, params=params, headers=headers,
-                                 extra_environ=extra_environ,status=status,
-                                 upload_files=upload_files,
-                                 expect_errors=expect_errors,
-                                 content_type=content_type)
-
-    def delete(self, url, headers=None, extra_environ=None,
-               status=None, expect_errors=False):
-        """
-        Do a DELETE request.  Very like the ``.get()`` method.
-
-        Returns a ``webob.Response`` object.
-        """
-        return self._gen_request('DELETE', url, headers=headers,
-                                 extra_environ=extra_environ,status=status,
-                                 upload_files=None, expect_errors=expect_errors)
-
-    def head(self, url, headers=None, extra_environ=None,
-               status=None, expect_errors=False):
-        """
-        Do a HEAD request.  Very like the ``.get()`` method.
-
-        Returns a ``webob.Response`` object.
-        """
-        return self._gen_request('HEAD', url, headers=headers,
-                                 extra_environ=extra_environ,status=status,
-                                 upload_files=None, expect_errors=expect_errors)
 
     def encode_multipart(self, params, files):
         """
@@ -874,43 +860,6 @@ class TestApp(object):
                 "filename, filecontent) or (fieldname, filename); "
                 "you gave: %r"
                 % repr(file_info)[:100])
-
-
-    def request(self, url_or_req, status=None, expect_errors=False,
-                **req_params):
-        """
-        Creates and executes a request.  You may either pass in an
-        instantiated :class:`TestRequest` object, or you may pass in a
-        URL and keyword arguments to be passed to
-        :method:`TestRequest.blank`.
-
-        You can use this to run a request without the intermediary
-        functioning of :method:`TestApp.get` etc.  For instance, to
-        test a WebDAV method::
-
-            resp = app.request('/new-col', method='MKCOL')
-
-        Note that the request won't have a body unless you specify it,
-        like::
-
-            resp = app.request('/test.txt', method='PUT', body='test')
-
-        You can use ``POST={args}`` to set the request body to the
-        serialized arguments, and simultaneously set the request
-        method to ``POST``
-        """
-        if isinstance(url_or_req, basestring):
-            req = self.RequestClass.blank(url_or_req, **req_params)
-        else:
-            req = url_or_req.copy()
-            for name, value in req_params.iteritems():
-                setattr(req, name, value)
-            if req.content_length == -1:
-                req.content_length = len(req.body)
-        req.environ['paste.throw_errors'] = True
-        for name, value in self.extra_environ.iteritems():
-            req.environ.setdefault(name, value)
-        return self.do_request(req, status=status, expect_errors=expect_errors)
 
     def do_request(self, req, status, expect_errors):
         """
