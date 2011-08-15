@@ -111,8 +111,8 @@ Some of the things this checks:
 
 import re
 import sys
-from types import DictType, StringType, TupleType, ListType
 import warnings
+from webtest.compat import DictType, StringType, TupleType, ListType
 
 header_re = re.compile(r'^[a-zA-Z][a-zA-Z0-9\-_]*$')
 bad_header_value_re = re.compile(r'[\000-\037]')
@@ -407,12 +407,22 @@ def check_content_type(status, headers):
     #     http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
     NO_MESSAGE_BODY = (201, 204, 304)
     NO_MESSAGE_TYPE = (204, 304)
+    length = None
+    for name, value in headers:
+        if name.lower() == 'content-length' and value.isdigit():
+            length = int(value)
     for name, value in headers:
         if name.lower() == 'content-type':
             if code not in NO_MESSAGE_TYPE:
                 return
-            assert 0, (("Content-Type header found in a %s response, "
-                        "which must not return content.") % code)
+            elif length == 0:
+                warnings.warn(("Content-Type header found in a %s response, "
+                               "which not return content.") % code,
+                               WSGIWarning)
+                return
+            else:
+                assert 0, (("Content-Type header found in a %s response, "
+                            "which must not return content.") % code)
     if code not in NO_MESSAGE_BODY:
         assert 0, "No Content-Type header found in headers (%s)" % headers
 

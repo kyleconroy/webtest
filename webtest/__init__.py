@@ -1,7 +1,5 @@
-# (c) 2005 Ian Bicking and contributors;
-# written for Paste (http://pythonpaste.org)
-# Licensed under the MIT license:
-# http://www.opensource.org/licenses/mit-license.php
+# (c) 2005 Ian Bicking and contributors; written for Paste (http://pythonpaste.org)
+# Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Routines for testing WSGI applications.
 
@@ -11,24 +9,22 @@ Most interesting is TestApp
 import sys
 import random
 import urllib
-import urlparse
+import warnings
 import mimetypes
 import time
 import cgi
 import os
-from Cookie import SimpleCookie, CookieError
-from Cookie import _quote as cookie_quote
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
 import re
 import fnmatch
-from webob import Response, Request
+from webtest.compat import urlparse
+from webtest.compat import print_stderr
+from webtest.compat import StringIO
+from webtest.compat import SimpleCookie, CookieError
+from webtest.compat import cookie_quote
+from webob import Request, Response
 from webtest import lint
 
 __all__ = ['TestApp', 'TestRequest']
-
 
 def tempnam_no_warning(*args):
     """
@@ -38,10 +34,8 @@ def tempnam_no_warning(*args):
     """
     return os.tempnam(*args)
 
-
 class NoDefault(object):
     pass
-
 
 try:
     sorted
@@ -51,10 +45,8 @@ except NameError:
         l.sort()
         return l
 
-
 class AppError(Exception):
     pass
-
 
 class CaptureStdout(object):
 
@@ -76,28 +68,6 @@ class CaptureStdout(object):
     def getvalue(self):
         return self.captured.getvalue()
 
-
-class BetterResponse(object):
-
-    def __init__(self, resp):
-        # Default values for the time being
-        self.cached = False
-        self.error = None
-        self.history = []
-
-        self.content = resp.body
-        self.status_code = int(resp.status[:3])
-        self.headers = resp.headers
-        self.ok = self.status_code < 400
-        self.url = resp.location
-
-    def raise_for_status():
-        pass
-
-    def read(*args):
-        pass
-
-
 class TestResponse(Response):
 
     """
@@ -105,6 +75,7 @@ class TestResponse(Response):
     """
 
     _forms_indexed = None
+
 
     def forms__get(self):
         """
@@ -145,7 +116,7 @@ class TestResponse(Response):
             return self.unicode_body
         return self.body
 
-    _tag_re = re.compile(r'<(/?)([:a-z0-9_\-]*)(.*?)>', re.S | re.I)
+    _tag_re = re.compile(r'<(/?)([:a-z0-9_\-]*)(.*?)>', re.S|re.I)
 
     def _parse_forms(self):
         forms = self._forms_indexed = {}
@@ -268,15 +239,15 @@ class TestResponse(Response):
         html_pat = _make_pattern(html_pattern)
 
         _tag_re = re.compile(r'<%s\s+(.*?)>(.*?)</%s>' % (tag, tag),
-                             re.I + re.S)
-        _script_re = re.compile(r'<script.*?>.*?</script>', re.I | re.S)
+                             re.I+re.S)
+        _script_re = re.compile(r'<script.*?>.*?</script>', re.I|re.S)
         bad_spans = []
         for match in _script_re.finditer(self.testbody):
             bad_spans.append((match.start(), match.end()))
 
         def printlog(s):
             if verbose:
-                print s
+                print(s)
 
         found_links = []
         total_links = 0
@@ -375,12 +346,10 @@ class TestResponse(Response):
             href = to_str(href)
 
             if 'params' in args:
-                args['params'] = [tuple(map(to_str, p))
-                                  for p in args['params']]
+                args['params'] = [tuple(map(to_str, p)) for p in args['params']]
 
             if 'upload_files' in args:
-                args['upload_files'] = [map(to_str, f)
-                                        for f in args['upload_files']]
+                args['upload_files'] = [map(to_str, f) for f in args['upload_files']]
 
             if 'content_type' in args:
                 args['content_type'] = to_str(args['content_type'])
@@ -409,8 +378,7 @@ class TestResponse(Response):
     def unicode_normal_body__get(self):
         if not self.charset:
             raise AttributeError(
-                "You cannot access Response.unicode_"
-                "normal_body unless charset is set")
+                "You cannot access Response.unicode_normal_body unless charset is set")
         return self.normal_body.decode(self.charset)
 
     unicode_normal_body = property(
@@ -458,14 +426,14 @@ class TestResponse(Response):
                 "The only keyword argument allowed is 'no'")
         for s in strings:
             if not s in self:
-                print >> sys.stderr, "Actual response (no %r):" % s
-                print >> sys.stderr, self
+                print_stderr("Actual response (no %r):" % s)
+                print_stderr(self)
                 raise IndexError(
                     "Body does not contain string %r" % s)
         for no_s in no:
             if no_s in self:
-                print >> sys.stderr, "Actual response (has %r)" % no_s
-                print >> sys.stderr, self
+                print_stderr("Actual response (has %r)" % no_s)
+                print_stderr(self)
                 raise IndexError(
                     "Body contains bad string %r" % no_s)
 
@@ -494,7 +462,7 @@ class TestResponse(Response):
         if self.body:
             br = repr(self.body)
             if len(br) > 18:
-                br = br[:10] + '...' + br[-5:]
+                br = br[:10]+'...'+br[-5:]
                 br += '/%s' % len(self.body)
             body = ' body=%s' % br
         else:
@@ -551,8 +519,7 @@ class TestResponse(Response):
                     from elementtree import ElementTree
                 except ImportError:
                     raise ImportError(
-                        "You must have ElementTree installed (or use"
-                        "Python 2.5) to use response.xml")
+                        "You must have ElementTree installed (or use Python 2.5) to use response.xml")
         # ElementTree can't parse unicode => use `body` instead of `testbody`
         return ElementTree.XML(self.body)
 
@@ -594,8 +561,10 @@ class TestResponse(Response):
     def json(self):
         """
         Return the response as a JSON response.  You must have
-        `simplejson` installed to use this, or be using a Python
-        version with the json module.
+        `simplejson
+        <http://svn.red-bean.com/bob/simplejson/tags/simplejson-1.7/docs/index.html>`_
+        installed to use this, or be using a Python version with the
+        json module.
 
         The content type must be application/json to use this.
         """
@@ -649,37 +618,34 @@ class TestResponse(Response):
         url = 'file:' + fn.replace(os.sep, '/')
         webbrowser.open_new(url)
 
-
 class TestRequest(Request):
 
     # for py.test
     disabled = True
     ResponseClass = TestResponse
 
-
 class TestApp(object):
+    """
+    Wraps a WSGI application in a more convenient interface for
+    testing.
+
+    ``app`` may be an application, or a Paste Deploy app
+    URI, like ``'config:filename.ini#test'``.
+
+    ``extra_environ`` is a dictionary of values that should go
+    into the environment for each request.  These can provide a
+    communication channel with the application.
+
+    ``relative_to`` is a directory, and filenames used for file
+    uploads are calculated relative to this.  Also ``config:``
+    URIs that aren't absolute.
+    """
 
     # for py.test
     disabled = True
     RequestClass = TestRequest
 
-    def __init__(self, app, extra_environ=None,
-                 relative_to=None, use_unicode=True):
-        """
-        Wraps a WSGI application in a more convenient interface for
-        testing.
-
-        ``app`` may be an application, or a Paste Deploy app
-        URI, like ``'config:filename.ini#test'``.
-
-        ``extra_environ`` is a dictionary of values that should go
-        into the environment for each request.  These can provide a
-        communication channel with the application.
-
-        ``relative_to`` is a directory, and filenames used for file
-        uploads are calculated relative to this.  Also ``config:``
-        URIs that aren't absolute.
-        """
+    def __init__(self, app, extra_environ=None, relative_to=None, use_unicode=True):
         if isinstance(app, (str, unicode)):
             from paste.deploy import loadapp
             # @@: Should pick up relative_to from calling module's
@@ -692,107 +658,6 @@ class TestApp(object):
         self.extra_environ = extra_environ
         self.use_unicode = use_unicode
         self.reset()
-
-    def request(self, method, url, params=None, data=None, headers=None,
-                cookies=None, files=None, auth=None, timeout=None,
-                allow_redirects=False):
-        """Constructs and sends a :class:`Request <models.Request>`. Returns
-        :class:`Response <models.Response>` object.
-
-        :param method: method for the new :class:`Request` object.
-
-        :param url: URL for the new :class:`Request` object.
-
-        :param params: (optional) Dictionary of GET/HEAD/DELETE
-        Parameters to send with the :class:`Request`.
-
-        :param data: (optional) Bytes/Dictionary of PUT/POST Data
-        to send with the :class:`Request`.
-
-        :param headers: (optional) Dictionary of HTTP Headers
-        to send with the :class:`Request`.
-
-        :param cookies: (optional) CookieJar object to
-        send with the :class:`Request`.
-
-        :param files: (optional) Dictionary of 'filename':
-        file-like-objects for multipart encoding upload.
-
-        :param auth: (optional) AuthObject to enable Basic HTTP Auth.
-
-        :param timeout: (optional) Float describing the timeout of the request.
-
-        :param allow_redirects: (optional) Boolean. Set to
-        True if POST/PUT/DELETE redirect following is allowed.
-        """
-        if params and data:
-            raise AppError('You may provide either params or '
-                           'data to a request, but not both.')
-
-        r = self.create_request(
-            method=method,
-            url=url,
-            data=params or data,
-            headers=headers,
-            cookiejar=cookies,
-            files=files,
-            auth=auth,        # or auth_manager.get_auth(url),
-            timeout=timeout,  # or config.settings.timeout,
-            allow_redirects=allow_redirects
-            )
-
-        return BetterResponse(r)
-
-    def create_request(self, url=None, headers=None, files=None, method=None,
-                       data=None, auth=None, cookiejar=None, timeout=None,
-                       redirect=True, allow_redirects=False):
-        headers = headers or {}
-        data = data or {}
-        self.cookies = cookiejar
-
-        resp = self._gen_request(method, url, headers=headers,
-                                 upload_files=files, expect_errors=True)
-        return resp
-
-    def get(self, url, body=None, params=None, headers=None, cookies=None,
-            auth=None, timeout=None):
-        """Sends a GET request. Returns :class:`BetterResponse` object.
-        """
-        return self.request('GET', url, body=body, params=params,
-                            headers=headers, cookies=cookies, auth=auth,
-                            timeout=timeout)
-
-    def head(self, url, params=None, headers=None, cookies=None,
-             auth=None, timeout=None):
-        """Sends a HEAD request. Returns :class:`BetterResponse` object.
-        """
-        return self.request('HEAD', url, params=params, headers=headers,
-                       cookies=cookies, auth=auth, timeout=timeout)
-
-    def post(self, url, data='', headers=None, files=None, cookies=None,
-             auth=None, timeout=None, allow_redirects=False):
-        """Sends a POST request. Returns :class:`BetterResponse` object.
-        """
-
-        return self.request('POST', url, data=data, headers=headers,
-                            files=files, cookies=cookies, auth=auth,
-                            timeout=timeout, allow_redirects=allow_redirects)
-
-    def put(self, url, data='', headers=None, files=None, cookies=None,
-            auth=None, timeout=None, allow_redirects=False):
-        """Sends a PUT request. Returns :class:`BetterResponse` object.
-        """
-        return self.request('PUT', url, data=data, headers=headers,
-                            files=files, cookies=cookies, auth=auth,
-                            timeout=timeout, allow_redirects=allow_redirects)
-
-    def delete(self, url, params=None, headers=None, cookies=None, auth=None,
-               timeout=None, allow_redirects=False):
-        """Sends a DELETE request. Returns :class:`BetterResponse` object.
-        """
-        return self.request('DELETE', url, params=params, headers=headers,
-                            cookies=cookies, auth=auth,
-                            timeout=timeout, allow_redirects=allow_redirects)
 
     def reset(self):
         """
@@ -812,9 +677,63 @@ class TestApp(object):
         scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
         return urlparse.urlunsplit((scheme, netloc, path, query, ""))
 
-    def _gen_request(self, method, url, params='', headers=None,
-                     extra_environ=None, status=None, upload_files=None,
-                     expect_errors=False, content_type=None):
+    def get(self, url, params=None, headers=None, extra_environ=None,
+            status=None, expect_errors=False):
+        """
+        Get the given url (well, actually a path like
+        ``'/page.html'``).
+
+        ``params``:
+            A query string, or a dictionary that will be encoded
+            into a query string.  You may also include a query
+            string on the ``url``.
+
+        ``headers``:
+            A dictionary of extra headers to send.
+
+        ``extra_environ``:
+            A dictionary of environmental variables that should
+            be added to the request.
+
+        ``status``:
+            The integer status code you expect (if not 200 or 3xx).
+            If you expect a 404 response, for instance, you must give
+            ``status=404`` or it will be an error.  You can also give
+            a wildcard, like ``'3*'`` or ``'*'``.
+
+        ``expect_errors``:
+            If this is not true, then if anything is written to
+            ``wsgi.errors`` it will be an error.  If it is true, then
+            non-200/3xx responses are also okay.
+
+        Returns a ``webob.Response`` object.
+        """
+        environ = self._make_environ(extra_environ)
+        # Hide from py.test:
+        __tracebackhide__ = True
+        url = self._remove_fragment(url)
+        if params:
+            if not isinstance(params, (str, unicode)):
+                params = urllib.urlencode(params, doseq=True)
+            if '?' in url:
+                url += '&'
+            else:
+                url += '?'
+            url += params
+        url = str(url)
+        if '?' in url:
+            url, environ['QUERY_STRING'] = url.split('?', 1)
+        else:
+            environ['QUERY_STRING'] = ''
+        req = self.RequestClass.blank(url, environ)
+        if headers:
+            req.headers.update(headers)
+        return self.do_request(req, status=status,
+                               expect_errors=expect_errors)
+
+    def _gen_request(self, method, url, params='', headers=None, extra_environ=None,
+                     status=None, upload_files=None, expect_errors=False,
+                     content_type=None):
         """
         Do a generic request.
         """
@@ -824,15 +743,13 @@ class TestApp(object):
             params = urllib.urlencode(params, doseq=True)
         if hasattr(params, 'items'):
             params = urllib.urlencode(params.items(), doseq=True)
-        if upload_files or (
-            content_type and content_type.startswith('multipart')):
+        if upload_files or (content_type and content_type.startswith('multipart')):
             params = cgi.parse_qsl(params, keep_blank_values=True)
             content_type, params = self.encode_multipart(
                 params, upload_files or ())
             environ['CONTENT_TYPE'] = content_type
         elif params:
-            environ.setdefault('CONTENT_TYPE',
-                               'application/x-www-form-urlencoded')
+            environ.setdefault('CONTENT_TYPE', 'application/x-www-form-urlencoded')
         if '?' in url:
             url, environ['QUERY_STRING'] = url.split('?', 1)
         else:
@@ -849,6 +766,70 @@ class TestApp(object):
         return self.do_request(req, status=status,
                                expect_errors=expect_errors)
 
+    def post(self, url, params='', headers=None, extra_environ=None,
+             status=None, upload_files=None, expect_errors=False,
+             content_type=None):
+        """
+        Do a POST request.  Very like the ``.get()`` method.
+        ``params`` are put in the body of the request.
+
+        ``upload_files`` is for file uploads.  It should be a list of
+        ``[(fieldname, filename, file_content)]``.  You can also use
+        just ``[(fieldname, filename)]`` and the file content will be
+        read from disk.
+
+        Returns a ``webob.Response`` object.
+        """
+        return self._gen_request('POST', url, params=params, headers=headers,
+                                 extra_environ=extra_environ,status=status,
+                                 upload_files=upload_files,
+                                 expect_errors=expect_errors,
+                                 content_type=content_type)
+
+    def put(self, url, params='', headers=None, extra_environ=None,
+            status=None, upload_files=None, expect_errors=False,
+            content_type=None):
+        """
+        Do a PUT request.  Very like the ``.put()`` method.
+        ``params`` are put in the body of the request, if params is a
+        tuple, dictionary, list, or iterator it will be urlencoded and
+        placed in the body as with a POST, if it is string it will not
+        be encoded, but placed in the body directly.
+
+        Returns a ``webob.Response`` object.
+        """
+        return self._gen_request('PUT', url, params=params, headers=headers,
+                                 extra_environ=extra_environ,status=status,
+                                 upload_files=upload_files,
+                                 expect_errors=expect_errors,
+                                 content_type=content_type)
+
+    def delete(self, url, params='', headers=None, extra_environ=None,
+               status=None, expect_errors=False):
+        """
+        Do a DELETE request.  Very like the ``.get()`` method.
+
+        Returns a ``webob.Response`` object.
+        """
+        if params:
+            warnings.warn(('You are not supposed to send a body in a '
+                           'DELETE request. Most web servers will ignore it'),
+                           lint.WSGIWarning)
+        return self._gen_request('DELETE', url, params=params, headers=headers,
+                                 extra_environ=extra_environ,status=status,
+                                 upload_files=None, expect_errors=expect_errors)
+
+    def head(self, url, headers=None, extra_environ=None,
+               status=None, expect_errors=False):
+        """
+        Do a HEAD request.  Very like the ``.get()`` method.
+
+        Returns a ``webob.Response`` object.
+        """
+        return self._gen_request('HEAD', url, headers=headers,
+                                 extra_environ=extra_environ,status=status,
+                                 upload_files=None, expect_errors=expect_errors)
+
     def encode_multipart(self, params, files):
         """
         Encodes a set of parameters (typically a name/value list) and
@@ -858,18 +839,18 @@ class TestApp(object):
         boundary = '----------a_BoUnDaRy%s$' % random.random()
         lines = []
         for key, value in params:
-            lines.append('--' + boundary)
+            lines.append('--'+boundary)
             lines.append('Content-Disposition: form-data; name="%s"' % key)
             lines.append('')
             lines.append(value)
         for file_info in files:
             key, filename, value = self._get_file_info(file_info)
-            lines.append('--' + boundary)
-            lines.append('Content-Disposition: form-data; name="%s";'
-                         ' filename="%s"' % (key, filename))
+            lines.append('--'+boundary)
+            lines.append('Content-Disposition: form-data; name="%s"; filename="%s"'
+                         % (key, filename))
             fcontent = mimetypes.guess_type(filename)[0]
             lines.append('Content-Type: %s' %
-                         fcontent or 'application/octet-stream')
+                         (fcontent or 'application/octet-stream'))
             lines.append('')
             lines.append(value)
         lines.append('--' + boundary + '--')
@@ -897,6 +878,43 @@ class TestApp(object):
                 "you gave: %r"
                 % repr(file_info)[:100])
 
+
+    def request(self, url_or_req, status=None, expect_errors=False,
+                **req_params):
+        """
+        Creates and executes a request.  You may either pass in an
+        instantiated :class:`TestRequest` object, or you may pass in a
+        URL and keyword arguments to be passed to
+        :meth:`TestRequest.blank`.
+
+        You can use this to run a request without the intermediary
+        functioning of :meth:`TestApp.get` etc.  For instance, to
+        test a WebDAV method::
+
+            resp = app.request('/new-col', method='MKCOL')
+
+        Note that the request won't have a body unless you specify it,
+        like::
+
+            resp = app.request('/test.txt', method='PUT', body='test')
+
+        You can use ``POST={args}`` to set the request body to the
+        serialized arguments, and simultaneously set the request
+        method to ``POST``
+        """
+        if isinstance(url_or_req, basestring):
+            req = self.RequestClass.blank(url_or_req, **req_params)
+        else:
+            req = url_or_req.copy()
+            for name, value in req_params.iteritems():
+                setattr(req, name, value)
+            if req.content_length == -1:
+                req.content_length = len(req.body)
+        req.environ['paste.throw_errors'] = True
+        for name, value in self.extra_environ.iteritems():
+            req.environ.setdefault(name, value)
+        return self.do_request(req, status=status, expect_errors=expect_errors)
+
     def do_request(self, req, status, expect_errors):
         """
         Executes the given request (``req``), with the expected
@@ -915,6 +933,9 @@ class TestApp(object):
         __tracebackhide__ = True
         errors = StringIO()
         req.environ['wsgi.errors'] = errors
+        script_name = req.environ.get('SCRIPT_NAME', '')
+        if script_name and req.path_info.startswith(script_name):
+            req.path_info = req.path_info[len(script_name):]
         if self.cookies:
             cookie_header = ''.join([
                 '%s=%s; ' % (name, cookie_quote(value))
@@ -954,9 +975,9 @@ class TestApp(object):
         for header in res.headers.getall('set-cookie'):
             try:
                 c = SimpleCookie(header)
-            except CookieError, e:
+            except CookieError:
                 raise CookieError(
-                    "Could not parse cookie header %r: %s" % (header, e))
+                    "Could not parse cookie header %r" % (header,))
             for key, morsel in c.items():
                 self.cookies[key] = morsel.value
                 res.cookies_set[key] = morsel.value
@@ -1052,8 +1073,7 @@ class Form(object):
             if tag == 'textarea' and end:
                 assert in_textarea, (
                     "</textarea> with no <textarea> at %s" % match.start())
-                value = self.text[in_textarea[1]:match.start()]
-                in_textarea[0].value = html_unquote(value)
+                in_textarea[0].value = html_unquote(self.text[in_textarea[1]:match.start()])
                 in_textarea = None
                 continue
             if end:
@@ -1112,8 +1132,7 @@ class Form(object):
             self.action = attrs.get('action', '')
             self.method = attrs.get('method', 'GET')
             self.id = attrs.get('id')
-            self.enctype = attrs.get('enctype',
-                                     'application/x-www-form-urlencoded')
+            self.enctype = attrs.get('enctype', 'application/x-www-form-urlencoded')
         else:
             assert 0, "No </form> tag found"
         assert self.action is not None, (
@@ -1253,9 +1272,7 @@ class Form(object):
         return submit
 
 
-_attr_re = re.compile(r'([^= \n\r\t]+)[ \n\r\t]*(?:=[ \n\r\t]*(?:'
-                      '"([^"]*)"|\'([^\']*)\'|([^"\'][^ \n\r\t>]*)))?', re.S)
-
+_attr_re = re.compile(r'([^= \n\r\t]+)[ \n\r\t]*(?:=[ \n\r\t]*(?:"([^"]*)"|\'([^\']*)\'|([^"\'][^ \n\r\t>]*)))?', re.S)
 
 def _parse_attrs(text):
     attrs = {}
@@ -1268,7 +1285,6 @@ def _parse_attrs(text):
         # supported now (actually they have never been supported).
         attrs[str(attr_name)] = attr_body
     return attrs
-
 
 class Field(object):
 
@@ -1310,10 +1326,8 @@ class Field(object):
 
     value = property(value__get, value__set)
 
-
 class NoValue(object):
     pass
-
 
 class Select(Field):
 
@@ -1362,9 +1376,7 @@ class Select(Field):
 
     value = property(value__get, value__set)
 
-
 Field.classes['select'] = Select
-
 
 class MultipleSelect(Field):
 
@@ -1400,8 +1412,7 @@ class MultipleSelect(Field):
     def value__get(self):
         selected_values = []
         if self.selectedIndices:
-            selected_values = [self.options[i][0]
-                               for i in self.selectedIndices]
+            selected_values = [self.options[i][0] for i in self.selectedIndices]
         elif not self._forced_values:
             selected_values = []
             for option, checked in self.options:
@@ -1416,7 +1427,6 @@ class MultipleSelect(Field):
     value = property(value__get, value__set)
 
 Field.classes['multiple_select'] = MultipleSelect
-
 
 class Radio(Select):
 
@@ -1436,8 +1446,8 @@ class Radio(Select):
 
     value = property(value__get, Select.value__set)
 
-Field.classes['radio'] = Radio
 
+Field.classes['radio'] = Radio
 
 class Checkbox(Field):
 
@@ -1464,7 +1474,6 @@ class Checkbox(Field):
     value = property(value__get, value__set)
 
 Field.classes['checkbox'] = Checkbox
-
 
 class Text(Field):
     """
@@ -1498,7 +1507,6 @@ class File(Field):
 
 Field.classes['file'] = File
 
-
 class Textarea(Text):
     """
     Field representing ``<textarea>``
@@ -1506,14 +1514,12 @@ class Textarea(Text):
 
 Field.classes['textarea'] = Textarea
 
-
 class Hidden(Text):
     """
     Field representing ``<input type="hidden">``
     """
 
 Field.classes['hidden'] = Hidden
-
 
 class Submit(Field):
     """
@@ -1540,12 +1546,10 @@ Field.classes['image'] = Submit
 ## Utility functions
 ########################################
 
-
 def _stringify(value):
     if isinstance(value, unicode):
         return value
     return str(value)
-
 
 def _popget(d, key, default=None):
     """
@@ -1554,7 +1558,6 @@ def _popget(d, key, default=None):
     if key in d:
         return d.pop(key)
     return default
-
 
 def _space_prefix(pref, full, sep=None, indent=None, include_sep=True):
     """
@@ -1581,7 +1584,6 @@ def _space_prefix(pref, full, sep=None, indent=None, include_sep=True):
     else:
         return sep.join(full)
 
-
 def _make_pattern(pat):
     if pat is None:
         return None
@@ -1593,7 +1595,6 @@ def _make_pattern(pat):
         return pat
     assert 0, (
         "Cannot make callable pattern object out of %r" % pat)
-
 
 def html_unquote(v):
     """

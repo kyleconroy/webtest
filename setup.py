@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '1.2.3'
+version = '1.2.4'
 
 setup(name='WebTest',
       version=version,
@@ -16,21 +16,26 @@ with any WSGI-compatible framework.
 This is based on ``paste.fixture.TestApp``.
 """,
       classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Framework :: Paste",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Topic :: Internet :: WWW/HTTP :: WSGI",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Server",
+        "Programming Language :: Python :: 2.5",
+        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 2.7",
       ],
       keywords='wsgi test unit tests web',
       author='Ian Bicking',
-      author_email='ianb@colorstudy.com',
-      url='http://pythonpaste.org/webtest/',
+      author_email='ianb at colorstudy com',
+      maintainer='Gael Pasgrimaud',
+      maintainer_email='gael@gawel.org',
+      url='http://webtest.pythonpaste.org/',
       license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
-      zip_safe=True,
+      zip_safe=False,
       install_requires=[
         'WebOb',
       ],
