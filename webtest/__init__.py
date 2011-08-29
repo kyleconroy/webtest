@@ -809,7 +809,7 @@ class TestApp(object):
 
     def request(self, method, url, params=None, data=None, headers=None,
                 cookies=None, files=None, auth=None, timeout=None,
-                allow_redirects=False):
+                allow_redirects=False, proxies=None):
         """Constructs and sends a :class:`Request <models.Request>`. Returns
         :class:`Response <models.Response>` object.
 
