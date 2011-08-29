@@ -1,7 +1,10 @@
-from setuptools import setup, find_packages
-import sys, os
+#!/usr/bin/env python
+from setuptools import setup
+from setuptools import find_packages
+import sys
+import os
 
-version = '1.2.4'
+version = '1.3'
 
 setup(name='WebTest',
       version=version,
@@ -33,7 +36,10 @@ This is based on ``paste.fixture.TestApp``.
       maintainer_email='gael@gawel.org',
       url='http://webtest.pythonpaste.org/',
       license='MIT',
-      packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
+      packages=find_packages(exclude=[
+          'ez_setup', 'examples', 'tests',
+          'bootstrap', 'bootstrap-py3k',
+      ]),
       include_package_data=True,
       zip_safe=False,
       install_requires=[
